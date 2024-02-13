@@ -283,16 +283,16 @@ export class Module implements AST {
 }
 
 class CodeGenerator implements Visitor<void> {
-  private locals: Map<string, number> | null = null;
-  private nextLocalOffset = 0;
-  private exitLabel: Label | null = null;
+  #locals?: Map<string, number>;
+  #nextLocalOffset = 0;
+  #exitLabel?: Label;
 
   visitNumber(node: Number): void {
     emit(`\tldr\tx0, =${node.value}`);
   }
 
   visitId(node: Id): void {
-    const offset = this.locals!.get(node.value);
+    const offset = this.#locals!.get(node.value);
     if (offset) {
       emit(`\tldr\tx0, [x29, #${offset}]`);
     } else {
@@ -365,7 +365,7 @@ class CodeGenerator implements Visitor<void> {
 
   visitReturn(node: Return): void {
     node.term.visit(this);
-    emit(`\tb\t${this.exitLabel}`);
+    emit(`\tb\t${this.#exitLabel}`);
   }
 
   visitBlock(node: Block): void {
@@ -392,15 +392,15 @@ class CodeGenerator implements Visitor<void> {
       locals.set(parameter, 8 * i - 32);
     });
 
-    this.locals = locals;
-    this.nextLocalOffset = -40;
-    this.exitLabel = new Label();
+    this.#locals = locals;
+    this.#nextLocalOffset = -40;
+    this.#exitLabel = new Label();
   }
 
   private teardownEnvironment() {
-    this.locals = null;
-    this.nextLocalOffset = 0;
-    this.exitLabel = null;
+    this.#locals = undefined;
+    this.#nextLocalOffset = 0;
+    this.#exitLabel = undefined;
   }
 
   private emitPrologue() {
@@ -416,7 +416,7 @@ class CodeGenerator implements Visitor<void> {
   private emitEpilogue() {
     // Default zero return
     emit("\tmov\tx0, #0");
-    emit(`${this.exitLabel}:`);
+    emit(`${this.#exitLabel}:`);
     // Restore the stack pointer
     emit("\tmov\tsp, x29");
     // Restore the link register and the frame pointer
@@ -444,13 +444,13 @@ class CodeGenerator implements Visitor<void> {
   visitVar(node: Var): void {
     node.value.visit(this);
     emit(`\tstr\tx0, [sp, #-16]!`);
-    this.locals!.set(node.name, this.nextLocalOffset - 8);
-    this.nextLocalOffset -= 16;
+    this.#locals!.set(node.name, this.#nextLocalOffset - 8);
+    this.#nextLocalOffset -= 16;
   }
 
   visitAssign(node: Assign): void {
     node.value.visit(this);
-    const offset = this.locals!.get(node.name);
+    const offset = this.#locals!.get(node.name);
     if (offset) {
       emit(`\tstr\tx0, [x29, #${offset}]`);
     } else {
@@ -481,15 +481,15 @@ class CodeGenerator implements Visitor<void> {
 }
 
 class Label {
-  static counter = 0;
-  value: number;
+  static #counter = 0;
+  #value: number;
 
   constructor() {
-    this.value = Label.counter++;
+    this.#value = Label.#counter++;
   }
 
   toString() {
-    return `.L${this.value}`;
+    return `.L${this.#value}`;
   }
 }
 
@@ -514,7 +514,7 @@ export class ParseResult<T> {
   constructor(public value: T, public source: Source) {}
 }
 
-export class Parser<T> {
+export class Parser<out T> {
   constructor(public parse: (source: Source) => ParseResult<T> | null) {}
 
   static regexp(regexp: RegExp): Parser<string> {
