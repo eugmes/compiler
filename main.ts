@@ -282,7 +282,7 @@ export class Function implements AST {
   emitEpilogue(env: Environment) {
     // Default zero return
     emit("\tmov\tx0, #0");
-    emit(`${env.exitLabel}:`)
+    emit(`${env.exitLabel}:`);
     // Restore the stack pointer
     emit("\tmov\tsp, x29");
     // Restore the link register and the frame pointer
@@ -366,7 +366,7 @@ export class While implements AST {
   }
 }
 
-export class Module implements AST{
+export class Module implements AST {
   constructor(public functions: Function[]) {}
 
   emit(env: Environment | null) {
@@ -381,23 +381,6 @@ export class Module implements AST{
     return other instanceof Module &&
       this.functions.length === other.functions.length &&
       this.functions.every((func, i) => func.equals(other.functions[i]));
-  }
-}
-
-export class Assert implements AST {
-  constructor(public condition: AST) {}
-
-  emit(env: Environment) {
-    this.condition.emit(env);
-    emit("\tcmp\tx0, #1");
-    emit("\tmov\tw0, #'.'");
-    emit("\tmov\tw1, #'F'");
-    emit("\tcsel\tw0, w0, w1, eq");
-    emit("\tbl\t_putchar");
-  }
-
-  equals(other: AST): boolean {
-    return other instanceof Assert && this.condition.equals(other.condition);
   }
 }
 
@@ -563,14 +546,11 @@ const args: Parser<AST[]> = expression.bind((arg) =>
 ).or(constant([]));
 
 /// call <- ID LEFT_PAREN args RIGHT_PAREN
-// TODO: better error checking for assert
 const call: Parser<AST> = ID.bind((callee) =>
   LEFT_PAREN.and(
     args.bind((args) =>
       RIGHT_PAREN.and(
-        constant(
-          callee === "assert" ? new Assert(args[0]) : new Call(callee, args),
-        ),
+        constant(new Call(callee, args)),
       )
     ),
   )
