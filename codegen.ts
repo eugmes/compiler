@@ -20,7 +20,7 @@ import {
   Visitor,
   While,
 } from "./ast.ts";
-import { FunctionFrame } from "./function_frame.ts"
+import { FunctionFrame } from "./function_frame.ts";
 
 // Register usage:
 //    SP - stack pointer
@@ -38,6 +38,7 @@ const emit = console.log;
 export class CodeGenerator implements Visitor<void> {
   #currentFrameInfo?: FunctionFrame;
   #exitLabel?: Label;
+  #frameSize = 0;
 
   constructor(public frameInfos: Map<string, FunctionFrame>) {}
 
@@ -47,7 +48,7 @@ export class CodeGenerator implements Visitor<void> {
 
   visitId(node: Id): void {
     const offset = this.#currentFrameInfo!.getOffset(node)!;
-    emit(`\tldr\tx0, [x29, #${-offset * 8}]`);
+    emit(`\tldr\tx0, [x29, #${offset * 8 - this.#frameSize}]`);
   }
 
   visitNot(node: Not): void {
@@ -153,31 +154,33 @@ export class CodeGenerator implements Visitor<void> {
     emit("\tmov\tx29, sp");
     // Save the arguments
     if (node.parameters.length > 8) {
-        throw new Error("Maximum 8 arguments are supported");
+      throw new Error("Maximum 8 arguments are supported");
     }
 
-    let frameSize = Math.ceil(this.#currentFrameInfo!.frameSize / 2) * 16;
+    const frameSize = Math.ceil(this.#currentFrameInfo!.frameSize / 2) * 16;
+    this.#frameSize = frameSize;
 
     if (node.parameters.length === 0 && frameSize > 0) {
-        emit(`\tsub\tsp, sp, #${frameSize}`);
-    } else {
-        let argIndex = 0;
-        let remainingArgs = node.parameters.length;
+      emit(`\tsub\tsp, sp, #${frameSize}`);
+    } else if (node.parameters.length === 1) {
+      emit(`\tstr\tx0, [sp, #${-frameSize}]!`);
+    } else if (node.parameters.length > 1) {
+      emit(`\tstp\tx0, x1, [sp, #${-frameSize}]!`);
+      let argIndex = 2;
+      let remainingArgs = node.parameters.length - 2;
 
-        while (remainingArgs > 0) {
-            if (remainingArgs > 2) {
-                emit(`\tstp\tx${argIndex + 1}, x${argIndex}, [sp, #-16]!`);
-                remainingArgs -= 2;
-                argIndex += 2;
-                frameSize -= 16;
-            } else if (remainingArgs == 2) {
-                emit(`\tstp\tx${argIndex + 1}, x${argIndex}, [sp, #${-frameSize}]!`);
-                remainingArgs -= 2;
-            } else if (remainingArgs == 1) {
-                emit(`\tstr\tx${argIndex}, [sp, #${-frameSize}]!`);
-                remainingArgs -= 1;
-            }
+      while (remainingArgs > 0) {
+        if (remainingArgs >= 2) {
+          emit(
+            `\tstp\tx${argIndex}, x${argIndex + 1}, [sp, #${8 * argIndex}]`,
+          );
+          remainingArgs -= 2;
+          argIndex += 2;
+        } else {
+          emit(`\tstr\tx${argIndex}, [sp, #${8 * argIndex}]`);
+          remainingArgs -= 1;
         }
+      }
     }
   }
 
@@ -212,13 +215,13 @@ export class CodeGenerator implements Visitor<void> {
   visitVar(node: Var): void {
     node.value.visit(this);
     const offset = this.#currentFrameInfo!.getOffset(node)!;
-    emit(`\tstr\tx0, [x29, #${-offset * 8}]`);
+    emit(`\tstr\tx0, [x29, #${offset * 8 - this.#frameSize}]`);
   }
 
   visitAssign(node: Assign): void {
     node.value.visit(this);
     const offset = this.#currentFrameInfo!.getOffset(node)!;
-    emit(`\tstr\tx0, [x29, #${-offset * 8}]`);
+    emit(`\tstr\tx0, [x29, #${offset * 8 - this.#frameSize}]`);
   }
 
   visitWhile(node: While): void {
