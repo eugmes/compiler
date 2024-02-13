@@ -29,7 +29,6 @@ export class FunctionFrame {
   frameSize = 0;
 
   addArgument(name: string) {
-    console.log(`Add argument: ${name}`);
     if (this.#nameMap.has(name)) {
       throw new Error(`Duplicate definition of argument ${name}`);
     }
@@ -39,7 +38,6 @@ export class FunctionFrame {
   }
 
   addLocal(v: Var) {
-    console.log(`Add local: ${v.name}`);
     const id = this.frameSize++;
     this.#nameMap.set(v.name, id);
     this.idMap.set(v, id);
@@ -47,7 +45,6 @@ export class FunctionFrame {
 
   mapLocal(v: Id | Assign) {
     const name = (v instanceof Id) ? v.value : v.name;
-    console.log(`Map local: ${name}`);
     const id = this.#nameMap.get(name);
     if (id === undefined) {
       throw new Error(`Undefined variable ${name}`);
@@ -123,7 +120,6 @@ class FunctionFrameAnalysis implements Visitor<void> {
   }
 
   visitFunction(node: Function): void {
-    console.log(node.name);
     if (this.functionFrames.has(node.name)) {
       throw new Error(`Redefinition of function ${node.name}`);
     }
