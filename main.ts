@@ -11,14 +11,6 @@
 //    r0..r7   - parameter/result registers
 const emit = console.log;
 
-export class Environment {
-  constructor(
-    public locals: Map<string, number>,
-    public nextLocalOffset: number,
-    public exitLabel: Label,
-  ) {}
-}
-
 export interface AST {
   visit<T>(v: Visitor<T>): T;
   equals(other: AST): boolean;
