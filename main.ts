@@ -346,13 +346,20 @@ class CodeGenerator implements Visitor<void> {
   }
 
   visitCall(node: Call): void {
-    emit("\tsub\tsp, sp, #32");
-    node.args.forEach((arg, i) => {
-      arg.visit(this);
-      emit(`\tstr\tx0, [sp, #${8 * i}]`);
-    });
-    emit("\tldp\tx0, x1, [sp], #16");
-    emit("\tldp\tx2, x3, [sp], #16");
+    if (node.args.length > 1) {
+      emit("\tsub\tsp, sp, #32");
+      node.args.forEach((arg, i) => {
+        arg.visit(this);
+        emit(`\tstr\tx0, [sp, #${8 * i}]`);
+      });
+      emit("\tldp\tx0, x1, [sp], #16");
+      emit("\tldp\tx2, x3, [sp], #16");
+    } else {
+      // Don't use stack for functions with less than 2 arguments.
+      node.args.forEach((arg, _i) => {
+        arg.visit(this);
+      });
+    }
     emit(`\tbl\t_${node.callee}`);
   }
 
