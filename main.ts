@@ -72,9 +72,9 @@ export class Equal implements AST {
 
   emit(env: Environment) {
     this.left.emit(env);
-    emit("\tstp\tx0, xzr, [sp, #-16]!");
+    emit("\tstr\tx0, [sp, #-16]!");
     this.right.emit(env);
-    emit("\tldp\tx1, xzr, [sp], #16");
+    emit("\tldr\tx1, [sp], #16");
     emit("\tcmp\tx1, x0");
     emit("\tcset\tx0, eq");
   }
@@ -90,9 +90,9 @@ export class NotEqual implements AST {
 
   emit(env: Environment) {
     this.left.emit(env);
-    emit("\tstp\tx0, xzr, [sp, #-16]!");
+    emit("\tstr\tx0, [sp, #-16]!");
     this.right.emit(env);
-    emit("\tldp\tx1, xzr, [sp], #16");
+    emit("\tldr\tx1, [sp], #16");
     emit("\tcmp\tx1, x0");
     emit("\tcset\tx0, ne");
   }
@@ -108,9 +108,9 @@ export class Add implements AST {
 
   emit(env: Environment) {
     this.left.emit(env);
-    emit("\tstp\tx0, xzr, [sp, #-16]!");
+    emit("\tste\tx0, [sp, #-16]!");
     this.right.emit(env);
-    emit("\tldp\tx1, xzr, [sp], #16");
+    emit("\tldr\tx1, [sp], #16");
     emit("\tadd\tx0, x1, x0");
   }
 
@@ -125,9 +125,9 @@ export class Subtract implements AST {
 
   emit(env: Environment) {
     this.left.emit(env);
-    emit("\tstp\tx0, xzr, [sp, #-16]!");
+    emit("\tstr\tx0, [sp, #-16]!");
     this.right.emit(env);
-    emit("\tldp\tx1, xzr, [sp], #16");
+    emit("\tldr\tx1, [sp], #16");
     emit("\tsub\tx0, x1, x0");
   }
 
@@ -142,9 +142,9 @@ export class Multiply implements AST {
 
   emit(env: Environment) {
     this.left.emit(env);
-    emit("\tstp\tx0, xzr, [sp, #-16]!");
+    emit("\tstr\tx0, [sp, #-16]!");
     this.right.emit(env);
-    emit("\tldp\tx1, xzr, [sp], #16");
+    emit("\tldr\tx1, [sp], #16");
     emit("\tmul\tx0, x1, x0");
   }
 
@@ -159,9 +159,9 @@ export class Divide implements AST {
 
   emit(env: Environment) {
     this.left.emit(env);
-    emit("\tstp\tx0, xzr, [sp, #-16]!");
+    emit("\tstr\tx0, [sp, #-16]!");
     this.right.emit(env);
-    emit("\tldp\tx1, xzr, [sp], #16");
+    emit("\tldr\tx1, [sp], #16");
     emit("\tdiv\tx0, x1, x0");
   }
 
@@ -313,7 +313,7 @@ export class Var implements AST {
 
   emit(env: Environment) {
     this.value.emit(env);
-    emit(`\tstp\tx0, xzr, [sp, #-16]!`);
+    emit(`\tstr\tx0, [sp, #-16]!`);
     env.locals.set(this.name, env.nextLocalOffset - 8);
     env.nextLocalOffset -= 16;
   }
