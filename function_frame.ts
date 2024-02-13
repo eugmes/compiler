@@ -38,8 +38,11 @@ export class FunctionFrame {
   }
 
   addLocal(v: Var) {
-    const id = this.frameSize++;
-    this.#nameMap.set(v.name, id);
+    let id = this.#nameMap.get(v.name);
+    if (id === undefined) {
+      id = this.frameSize++;
+      this.#nameMap.set(v.name, id);
+    }
     this.idMap.set(v, id);
   }
 
