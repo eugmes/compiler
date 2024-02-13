@@ -12,15 +12,12 @@ import {
   Multiply,
   NotEqual,
   Number,
-  Parser,
-  parser,
-  ParseResult,
   Return,
-  Source,
   Subtract,
   Var,
   While,
-} from "./main.ts";
+} from "./ast.ts";
+import { Parser, parser, ParseResult, Source } from "./parser.ts";
 
 Deno.test(function sourceTest() {
   const source = new Source("hello1 bye2", 0);
