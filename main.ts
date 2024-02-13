@@ -20,15 +20,36 @@ export class Environment {
 }
 
 export interface AST {
-  emit(env: Environment): void;
+  visit<T>(v: Visitor<T>): T;
   equals(other: AST): boolean;
+}
+
+interface Visitor<T> {
+  visitNumber(node: Number): T;
+  visitId(node: Id): T;
+  visitNot(node: Not): T;
+  visitEqual(node: Equal): T;
+  visitNotEqual(node: NotEqual): T;
+  visitAdd(node: Add): T;
+  visitSubtract(node: Subtract): T;
+  visitMultiply(node: Multiply): T;
+  visitDivide(node: Divide): T;
+  visitCall(node: Call): T;
+  visitReturn(node: Return): T;
+  visitBlock(node: Block): T;
+  visitIf(node: If): T;
+  visitFunction(node: Function): T;
+  visitVar(node: Var): T;
+  visitAssign(node: Assign): T;
+  visitWhile(node: While): T;
+  visitModule(node: Module): T;
 }
 
 export class Number implements AST {
   constructor(public value: number) {}
 
-  emit(_: Environment) {
-    emit(`\tldr\tx0, =${this.value}`);
+  visit<T>(v: Visitor<T>): T {
+    return v.visitNumber(this);
   }
 
   equals(other: AST): boolean {
@@ -39,13 +60,8 @@ export class Number implements AST {
 export class Id implements AST {
   constructor(public value: string) {}
 
-  emit(env: Environment) {
-    const offset = env.locals.get(this.value);
-    if (offset) {
-      emit(`\tldr\tx0, [x29, #${offset}]`);
-    } else {
-      throw Error(`Undefined variable: ${this.value}`);
-    }
+  visit<T>(v: Visitor<T>): T {
+    return v.visitId(this);
   }
 
   equals(other: AST): boolean {
@@ -56,10 +72,8 @@ export class Id implements AST {
 export class Not implements AST {
   constructor(public term: AST) {}
 
-  emit(env: Environment) {
-    this.term.emit(env);
-    emit("\tcmp\tx0, #1");
-    emit("\tcset\tx0, ne");
+  visit<T>(v: Visitor<T>): T {
+    return v.visitNot(this);
   }
 
   equals(other: AST): boolean {
@@ -70,13 +84,8 @@ export class Not implements AST {
 export class Equal implements AST {
   constructor(public left: AST, public right: AST) {}
 
-  emit(env: Environment) {
-    this.left.emit(env);
-    emit("\tstr\tx0, [sp, #-16]!");
-    this.right.emit(env);
-    emit("\tldr\tx1, [sp], #16");
-    emit("\tcmp\tx1, x0");
-    emit("\tcset\tx0, eq");
+  visit<T>(v: Visitor<T>): T {
+    return v.visitEqual(this);
   }
 
   equals(other: AST): boolean {
@@ -88,13 +97,8 @@ export class Equal implements AST {
 export class NotEqual implements AST {
   constructor(public left: AST, public right: AST) {}
 
-  emit(env: Environment) {
-    this.left.emit(env);
-    emit("\tstr\tx0, [sp, #-16]!");
-    this.right.emit(env);
-    emit("\tldr\tx1, [sp], #16");
-    emit("\tcmp\tx1, x0");
-    emit("\tcset\tx0, ne");
+  visit<T>(v: Visitor<T>): T {
+    return v.visitNotEqual(this);
   }
 
   equals(other: AST): boolean {
@@ -106,12 +110,8 @@ export class NotEqual implements AST {
 export class Add implements AST {
   constructor(public left: AST, public right: AST) {}
 
-  emit(env: Environment) {
-    this.left.emit(env);
-    emit("\tste\tx0, [sp, #-16]!");
-    this.right.emit(env);
-    emit("\tldr\tx1, [sp], #16");
-    emit("\tadd\tx0, x1, x0");
+  visit<T>(v: Visitor<T>): T {
+    return v.visitAdd(this);
   }
 
   equals(other: AST): boolean {
@@ -123,12 +123,8 @@ export class Add implements AST {
 export class Subtract implements AST {
   constructor(public left: AST, public right: AST) {}
 
-  emit(env: Environment) {
-    this.left.emit(env);
-    emit("\tstr\tx0, [sp, #-16]!");
-    this.right.emit(env);
-    emit("\tldr\tx1, [sp], #16");
-    emit("\tsub\tx0, x1, x0");
+  visit<T>(v: Visitor<T>): T {
+    return v.visitSubtract(this);
   }
 
   equals(other: AST): boolean {
@@ -140,12 +136,8 @@ export class Subtract implements AST {
 export class Multiply implements AST {
   constructor(public left: AST, public right: AST) {}
 
-  emit(env: Environment) {
-    this.left.emit(env);
-    emit("\tstr\tx0, [sp, #-16]!");
-    this.right.emit(env);
-    emit("\tldr\tx1, [sp], #16");
-    emit("\tmul\tx0, x1, x0");
+  visit<T>(v: Visitor<T>): T {
+    return v.visitMultiply(this);
   }
 
   equals(other: AST): boolean {
@@ -157,12 +149,8 @@ export class Multiply implements AST {
 export class Divide implements AST {
   constructor(public left: AST, public right: AST) {}
 
-  emit(env: Environment) {
-    this.left.emit(env);
-    emit("\tstr\tx0, [sp, #-16]!");
-    this.right.emit(env);
-    emit("\tldr\tx1, [sp], #16");
-    emit("\tdiv\tx0, x1, x0");
+  visit<T>(v: Visitor<T>): T {
+    return v.visitDivide(this);
   }
 
   equals(other: AST): boolean {
@@ -174,15 +162,8 @@ export class Divide implements AST {
 export class Call implements AST {
   constructor(public callee: string, public args: AST[]) {}
 
-  emit(env: Environment) {
-    emit("\tsub\tsp, sp, #32");
-    this.args.forEach((arg, i) => {
-      arg.emit(env);
-      emit(`\tstr\tx0, [sp, #${8 * i}]`);
-    });
-    emit("\tldp\tx0, x1, [sp], #16");
-    emit("\tldp\tx2, x3, [sp], #16");
-    emit(`\tbl\t_${this.callee}`);
+  visit<T>(v: Visitor<T>): T {
+    return v.visitCall(this);
   }
 
   equals(other: AST): boolean {
@@ -195,9 +176,8 @@ export class Call implements AST {
 export class Return implements AST {
   constructor(public term: AST) {}
 
-  emit(env: Environment) {
-    this.term.emit(env);
-    emit(`\tb\t${env.exitLabel}`);
+  visit<T>(v: Visitor<T>): T {
+    return v.visitReturn(this);
   }
 
   equals(other: AST): boolean {
@@ -208,8 +188,8 @@ export class Return implements AST {
 export class Block implements AST {
   constructor(public statements: AST[]) {}
 
-  emit(env: Environment) {
-    this.statements.forEach((statement) => statement.emit(env));
+  visit<T>(v: Visitor<T>): T {
+    return v.visitBlock(this);
   }
 
   equals(other: AST): boolean {
@@ -226,18 +206,8 @@ export class If implements AST {
     public alternative: AST,
   ) {}
 
-  emit(env: Environment) {
-    const ifFalseLabel = new Label();
-    const endIfLabel = new Label();
-
-    this.conditional.emit(env);
-    emit("\tcmp\tx0, #1");
-    emit(`\tbne\t${ifFalseLabel}`);
-    this.consequence.emit(env);
-    emit(`\tb\t${endIfLabel}`);
-    emit(`${ifFalseLabel}:`);
-    this.alternative.emit(env);
-    emit(`${endIfLabel}:`);
+  visit<T>(v: Visitor<T>): T {
+    return v.visitIf(this);
   }
 
   equals(other: AST): boolean {
@@ -254,50 +224,8 @@ export class Function implements AST {
     public body: AST,
   ) {}
 
-  emit(_: Environment | null) {
-    if (this.parameters.length > 4) {
-      throw Error("More than 4 params is not supported");
-    }
-
-    const env = this.setupEnvironment();
-
-    emit(`\t.globl\t_${this.name}`);
-    emit("\t.p2align\t2");
-    emit(`_${this.name}:`);
-    this.emitPrologue();
-    this.body.emit(env);
-    this.emitEpilogue(env);
-  }
-
-  emitPrologue() {
-    // Save the link register and the frame pointer
-    emit("\tstp\tx29, x30, [sp, #-16]!");
-    // Setup the frame pointer
-    emit("\tmov\tx29, sp");
-    // Save the arguments
-    emit("\tstp\tx2, x3, [sp, #-16]!");
-    emit("\tstp\tx0, x1, [sp, #-16]!");
-  }
-
-  emitEpilogue(env: Environment) {
-    // Default zero return
-    emit("\tmov\tx0, #0");
-    emit(`${env.exitLabel}:`);
-    // Restore the stack pointer
-    emit("\tmov\tsp, x29");
-    // Restore the link register and the frame pointer
-    emit("\tldp\tx29, x30, [sp], #16");
-    emit("\tret");
-  }
-
-  setupEnvironment() {
-    const locals = new Map();
-    this.parameters.forEach((parameter, i) => {
-      locals.set(parameter, 8 * i - 32);
-    });
-    const nextLocalOffset = -40;
-    const exitLabel = new Label();
-    return new Environment(locals, nextLocalOffset, exitLabel);
+  visit<T>(v: Visitor<T>): T {
+    return v.visitFunction(this);
   }
 
   equals(other: AST): boolean {
@@ -311,11 +239,8 @@ export class Function implements AST {
 export class Var implements AST {
   constructor(public name: string, public value: AST) {}
 
-  emit(env: Environment) {
-    this.value.emit(env);
-    emit(`\tstr\tx0, [sp, #-16]!`);
-    env.locals.set(this.name, env.nextLocalOffset - 8);
-    env.nextLocalOffset -= 16;
+  visit<T>(v: Visitor<T>): T {
+    return v.visitVar(this);
   }
 
   equals(other: AST): boolean {
@@ -327,14 +252,8 @@ export class Var implements AST {
 export class Assign implements AST {
   constructor(public name: string, public value: AST) {}
 
-  emit(env: Environment) {
-    this.value.emit(env);
-    const offset = env.locals.get(this.name);
-    if (offset) {
-      emit(`\tstr\tx0, [x29, #${offset}]`);
-    } else {
-      throw Error(`Undefined variable: ${this.name}`);
-    }
+  visit<T>(v: Visitor<T>): T {
+    return v.visitAssign(this);
   }
 
   equals(other: AST): boolean {
@@ -346,17 +265,8 @@ export class Assign implements AST {
 export class While implements AST {
   constructor(public conditional: AST, public body: AST) {}
 
-  emit(env: Environment) {
-    const startLoopLabel = new Label();
-    const endLoopLabel = new Label();
-
-    emit(`${startLoopLabel}:`);
-    this.conditional.emit(env);
-    emit("\tcmp\tx0, #1");
-    emit(`\tbne\t${endLoopLabel}`);
-    this.body.emit(env);
-    emit(`\tb\t${startLoopLabel}`);
-    emit(`${endLoopLabel}:`);
+  visit<T>(v: Visitor<T>): T {
+    return v.visitWhile(this);
   }
 
   equals(other: AST): boolean {
@@ -369,18 +279,205 @@ export class While implements AST {
 export class Module implements AST {
   constructor(public functions: Function[]) {}
 
-  emit(env: Environment | null) {
-    emit("\t.section\t__TEXT,__text,regular,pure_instructions");
-    this.functions.forEach((func) => {
-      emit("");
-      func.emit(env);
-    });
+  visit<T>(v: Visitor<T>): T {
+    return v.visitModule(this);
   }
 
   equals(other: AST): boolean {
     return other instanceof Module &&
       this.functions.length === other.functions.length &&
       this.functions.every((func, i) => func.equals(other.functions[i]));
+  }
+}
+
+class CodeGenerator implements Visitor<void> {
+  private locals: Map<string, number> | null = null;
+  private nextLocalOffset = 0;
+  private exitLabel: Label | null = null;
+
+  visitNumber(node: Number): void {
+    emit(`\tldr\tx0, =${node.value}`);
+  }
+
+  visitId(node: Id): void {
+    const offset = this.locals!.get(node.value);
+    if (offset) {
+      emit(`\tldr\tx0, [x29, #${offset}]`);
+    } else {
+      throw Error(`Undefined variable: ${node.value}`);
+    }
+  }
+
+  visitNot(node: Not): void {
+    node.term.visit(this);
+    emit("\tcmp\tx0, #1");
+    emit("\tcset\tx0, ne");
+  }
+
+  private prepareBinaryOp(node: { left: AST; right: AST }): void {
+    node.left.visit(this);
+    emit("\tstr\tx0, [sp, #-16]!");
+    node.right.visit(this);
+    emit("\tldr\tx1, [sp], #16");
+  }
+
+  visitEqual(node: Equal): void {
+    this.prepareBinaryOp(node);
+    emit("\tcmp\tx1, x0");
+    emit("\tcset\tx0, eq");
+  }
+
+  visitNotEqual(node: NotEqual): void {
+    this.prepareBinaryOp(node);
+    emit("\tcmp\tx1, x0");
+    emit("\tcset\tx0, ne");
+  }
+
+  visitAdd(node: Add): void {
+    this.prepareBinaryOp(node);
+    emit("\tadd\tx0, x1, x0");
+  }
+
+  visitSubtract(node: Subtract): void {
+    this.prepareBinaryOp(node);
+    emit("\tsub\tx0, x1, x0");
+  }
+
+  visitMultiply(node: Multiply): void {
+    this.prepareBinaryOp(node);
+    emit("\tmul\tx0, x1, x0");
+  }
+
+  visitDivide(node: Divide): void {
+    this.prepareBinaryOp(node);
+    emit("\tdiv\tx0, x1, x0");
+  }
+
+  visitCall(node: Call): void {
+    emit("\tsub\tsp, sp, #32");
+    node.args.forEach((arg, i) => {
+      arg.visit(this);
+      emit(`\tstr\tx0, [sp, #${8 * i}]`);
+    });
+    emit("\tldp\tx0, x1, [sp], #16");
+    emit("\tldp\tx2, x3, [sp], #16");
+    emit(`\tbl\t_${node.callee}`);
+  }
+
+  visitReturn(node: Return): void {
+    node.term.visit(this);
+    emit(`\tb\t${this.exitLabel}`);
+  }
+
+  visitBlock(node: Block): void {
+    node.statements.forEach((statement) => statement.visit(this));
+  }
+
+  visitIf(node: If): void {
+    const ifFalseLabel = new Label();
+    const endIfLabel = new Label();
+
+    node.conditional.visit(this);
+    emit("\tcmp\tx0, #1");
+    emit(`\tbne\t${ifFalseLabel}`);
+    node.consequence.visit(this);
+    emit(`\tb\t${endIfLabel}`);
+    emit(`${ifFalseLabel}:`);
+    node.alternative.visit(this);
+    emit(`${endIfLabel}:`);
+  }
+
+  private setupEnvironment(node: Function) {
+    const locals = new Map();
+    node.parameters.forEach((parameter, i) => {
+      locals.set(parameter, 8 * i - 32);
+    });
+
+    this.locals = locals;
+    this.nextLocalOffset = -40;
+    this.exitLabel = new Label();
+  }
+
+  private teardownEnvironment() {
+    this.locals = null;
+    this.nextLocalOffset = 0;
+    this.exitLabel = null;
+  }
+
+  private emitPrologue() {
+    // Save the link register and the frame pointer
+    emit("\tstp\tx29, x30, [sp, #-16]!");
+    // Setup the frame pointer
+    emit("\tmov\tx29, sp");
+    // Save the arguments
+    emit("\tstp\tx2, x3, [sp, #-16]!");
+    emit("\tstp\tx0, x1, [sp, #-16]!");
+  }
+
+  private emitEpilogue() {
+    // Default zero return
+    emit("\tmov\tx0, #0");
+    emit(`${this.exitLabel}:`);
+    // Restore the stack pointer
+    emit("\tmov\tsp, x29");
+    // Restore the link register and the frame pointer
+    emit("\tldp\tx29, x30, [sp], #16");
+    emit("\tret");
+  }
+
+  visitFunction(node: Function): void {
+    if (node.parameters.length > 4) {
+      throw Error("More than 4 params is not supported");
+    }
+
+    this.setupEnvironment(node);
+
+    emit(`\t.globl\t_${node.name}`);
+    emit("\t.p2align\t2");
+    emit(`_${node.name}:`);
+    this.emitPrologue();
+    node.body.visit(this);
+    this.emitEpilogue();
+
+    this.teardownEnvironment();
+  }
+
+  visitVar(node: Var): void {
+    node.value.visit(this);
+    emit(`\tstr\tx0, [sp, #-16]!`);
+    this.locals!.set(node.name, this.nextLocalOffset - 8);
+    this.nextLocalOffset -= 16;
+  }
+
+  visitAssign(node: Assign): void {
+    node.value.visit(this);
+    const offset = this.locals!.get(node.name);
+    if (offset) {
+      emit(`\tstr\tx0, [x29, #${offset}]`);
+    } else {
+      throw Error(`Undefined variable: ${node.name}`);
+    }
+  }
+
+  visitWhile(node: While): void {
+    const startLoopLabel = new Label();
+    const endLoopLabel = new Label();
+
+    emit(`${startLoopLabel}:`);
+    node.conditional.visit(this);
+    emit("\tcmp\tx0, #1");
+    emit(`\tbne\t${endLoopLabel}`);
+    node.body.visit(this);
+    emit(`\tb\t${startLoopLabel}`);
+    emit(`${endLoopLabel}:`);
+  }
+
+  visitModule(node: Module): void {
+    emit("\t.section\t__TEXT,__text,regular,pure_instructions");
+    node.functions.forEach((func) => {
+      emit("");
+      func.visit(this);
+    });
   }
 }
 
@@ -704,7 +801,7 @@ function main() {
       print(factorial(5));
       print(factorial_rec(5));
     }
-  `).emit(null);
+  `).visit(new CodeGenerator());
 }
 
 if (import.meta.main) main();
