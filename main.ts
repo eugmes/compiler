@@ -1,8 +1,9 @@
 import { CodeGenerator } from "./codegen.ts";
 import { parser } from "./parser.ts";
+import { analyzeFrames } from "./function_frame.ts"
 
 function main() {
-  parser.parseStringToCompletion(`
+  const ast = parser.parseStringToCompletion(`
     function factorial_rec(n) {
       if (n == 1) {
         return 1;
@@ -24,7 +25,10 @@ function main() {
       print(factorial(5));
       print(factorial_rec(5));
     }
-  `).visit(new CodeGenerator());
+  `);
+
+  const frameInfos = analyzeFrames(ast);
+  ast.visit(new CodeGenerator(frameInfos));
 }
 
 if (import.meta.main) main();

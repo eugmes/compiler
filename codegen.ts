@@ -20,6 +20,7 @@ import {
   Visitor,
   While,
 } from "./ast.ts";
+import { FunctionFrame } from "./function_frame.ts"
 
 // Register usage:
 //    SP - stack pointer
@@ -35,21 +36,18 @@ import {
 const emit = console.log;
 
 export class CodeGenerator implements Visitor<void> {
-  #locals?: Map<string, number>;
-  #nextLocalOffset = 0;
+  #currentFrameInfo?: FunctionFrame;
   #exitLabel?: Label;
+
+  constructor(public frameInfos: Map<string, FunctionFrame>) {}
 
   visitNumber(node: Number): void {
     emit(`\tldr\tx0, =${node.value}`);
   }
 
   visitId(node: Id): void {
-    const offset = this.#locals!.get(node.value);
-    if (offset) {
-      emit(`\tldr\tx0, [x29, #${offset}]`);
-    } else {
-      throw Error(`Undefined variable: ${node.value}`);
-    }
+    const offset = this.#currentFrameInfo!.getOffset(node)!;
+    emit(`\tldr\tx0, [x29, #${-offset * 8}]`);
   }
 
   visitNot(node: Not): void {
@@ -139,30 +137,48 @@ export class CodeGenerator implements Visitor<void> {
   }
 
   private setupEnvironment(node: Function) {
-    const locals = new Map();
-    node.parameters.forEach((parameter, i) => {
-      locals.set(parameter, 8 * i - 32);
-    });
-
-    this.#locals = locals;
-    this.#nextLocalOffset = -40;
+    this.#currentFrameInfo = this.frameInfos.get(node.name)!;
     this.#exitLabel = new Label();
   }
 
   private teardownEnvironment() {
-    this.#locals = undefined;
-    this.#nextLocalOffset = 0;
+    this.#currentFrameInfo = undefined;
     this.#exitLabel = undefined;
   }
 
-  private emitPrologue() {
+  private emitPrologue(node: Function) {
     // Save the link register and the frame pointer
     emit("\tstp\tx29, x30, [sp, #-16]!");
     // Setup the frame pointer
     emit("\tmov\tx29, sp");
     // Save the arguments
-    emit("\tstp\tx2, x3, [sp, #-16]!");
-    emit("\tstp\tx0, x1, [sp, #-16]!");
+    if (node.parameters.length > 8) {
+        throw new Error("Maximum 8 arguments are supported");
+    }
+
+    let frameSize = Math.ceil(this.#currentFrameInfo!.frameSize / 2) * 16;
+
+    if (node.parameters.length === 0 && frameSize > 0) {
+        emit(`\tsub\tsp, sp, #${frameSize}`);
+    } else {
+        let argIndex = 0;
+        let remainingArgs = node.parameters.length;
+
+        while (remainingArgs > 0) {
+            if (remainingArgs > 2) {
+                emit(`\tstp\tx${argIndex + 1}, x${argIndex}, [sp, #-16]!`);
+                remainingArgs -= 2;
+                argIndex += 2;
+                frameSize -= 16;
+            } else if (remainingArgs == 2) {
+                emit(`\tstp\tx${argIndex + 1}, x${argIndex}, [sp, #${-frameSize}]!`);
+                remainingArgs -= 2;
+            } else if (remainingArgs == 1) {
+                emit(`\tstr\tx${argIndex}, [sp, #${-frameSize}]!`);
+                remainingArgs -= 1;
+            }
+        }
+    }
   }
 
   private emitEpilogue() {
@@ -186,7 +202,7 @@ export class CodeGenerator implements Visitor<void> {
     emit(`\t.globl\t_${node.name}`);
     emit("\t.p2align\t2");
     emit(`_${node.name}:`);
-    this.emitPrologue();
+    this.emitPrologue(node);
     node.body.visit(this);
     this.emitEpilogue();
 
@@ -195,19 +211,14 @@ export class CodeGenerator implements Visitor<void> {
 
   visitVar(node: Var): void {
     node.value.visit(this);
-    emit(`\tstr\tx0, [sp, #-16]!`);
-    this.#locals!.set(node.name, this.#nextLocalOffset - 8);
-    this.#nextLocalOffset -= 16;
+    const offset = this.#currentFrameInfo!.getOffset(node)!;
+    emit(`\tstr\tx0, [x29, #${-offset * 8}]`);
   }
 
   visitAssign(node: Assign): void {
     node.value.visit(this);
-    const offset = this.#locals!.get(node.name);
-    if (offset) {
-      emit(`\tstr\tx0, [x29, #${offset}]`);
-    } else {
-      throw Error(`Undefined variable: ${node.name}`);
-    }
+    const offset = this.#currentFrameInfo!.getOffset(node)!;
+    emit(`\tstr\tx0, [x29, #${-offset * 8}]`);
   }
 
   visitWhile(node: While): void {
