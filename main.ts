@@ -21,9 +21,42 @@ function main() {
       return result;
     }
 
+    function print_args(a, b, c, d) {
+      var e = 42;
+      print(a);
+      var f = 43;
+      print(b);
+      var g = 44;
+      print(c);
+      print(d);
+      print(e);
+      print(f);
+      print(g);
+    }
+
+    function f() {
+      var x = 1;
+      {
+        var x = 2;
+      }
+      print(x);
+    }
+
+    function g() {
+      var x = 1;
+      while (0) {
+        var x = 2;
+      }
+      print(x);
+    }
+
     function main() {
+      print(42);
+      print_args(1,2,3,4);
       print(factorial(5));
       print(factorial_rec(5));
+      f();
+      g();
     }
   `);
 
