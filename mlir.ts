@@ -88,12 +88,11 @@ export class MlirCodegen implements Visitor<Value | undefined> {
 
   visitNot(node: Not): Value {
     const term = node.term.visit(this);
-    const zero = this.#loadNumber(0);
     const one = this.#loadNumber(1);
     const cond = new Value();
     const v = new Value();
     emit(`    ${cond} = arith.cmpi eq, ${term}, ${one} : ${ty}`);
-    emit(`    ${v} = arith.select ${cond}, ${zero}, ${one} : ${ty}`);
+    emit(`    ${v} = arith.extui : i1 to ${ty}`);
     return v;
   }
 
@@ -101,13 +100,11 @@ export class MlirCodegen implements Visitor<Value | undefined> {
     const left = node.left.visit(this);
     const right = node.right.visit(this);
 
-    const zero = this.#loadNumber(0);
-    const one = this.#loadNumber(1);
     const cond = new Value();
     const v = new Value();
 
     emit(`    ${cond} = arith.cmpi ${pred}, ${left}, ${right} : ${ty}`);
-    emit(`    ${v} = arith.select ${cond}, ${one}, ${zero} : ${ty}`);
+    emit(`    ${v} = arith.extui ${cond} : i1 to ${ty}`);
 
     return v;
   }
