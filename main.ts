@@ -1,6 +1,7 @@
 import { CodeGenerator } from "./codegen.ts";
 import { parser } from "./parser.ts";
-import { analyzeFrames } from "./function_frame.ts"
+import { analyzeFrames } from "./function_frame.ts";
+import { MlirCodegen } from "./mlir.ts";
 
 function main() {
   const ast = parser.parseStringToCompletion(`
@@ -61,7 +62,7 @@ function main() {
   `);
 
   const frameInfos = analyzeFrames(ast);
-  ast.visit(new CodeGenerator(frameInfos));
+  ast.visit(new MlirCodegen(frameInfos));
 }
 
 if (import.meta.main) main();
